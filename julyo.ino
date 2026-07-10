@@ -14,10 +14,7 @@ Ultrasonic ultrasonic(8, 7);
 #define LINHA_ESQ 4
 #define LINHA_DIR 5
 
-//=========================
-// FUNÇÕES DOS MOTORES
-//=========================
-
+// Fnções dos motores
 void atacar() { // Frente máxima velocidade
   analogWrite(IN1, 255);
   analogWrite(IN2, 0);
@@ -82,8 +79,7 @@ void loop() {
   bool esq = digitalRead(LINHA_ESQ);
   bool dir = digitalRead(LINHA_DIR);
 
-  // ===== PRIORIDADE: NÃO SAIR DA ARENA =====
-
+  // A prioridade é não sair da arena
   // Os dois sensores detectaram a borda
   if (esq == LOW && dir == LOW) {
     parar();
@@ -126,8 +122,7 @@ void loop() {
     return;
   }
 
-  // ===== SENSOR ULTRASSÔNICO =====
-
+  // Sensor ultrassônico
   int distancia = ultrasonic.read(CM);
 
   Serial.print("Distancia: ");
