@@ -1,8 +1,17 @@
 #include <Ultrasonic.h>
 
-Ultrasonic ultrasonic(8, 7);
+// =====================================================
+// ULTRASSÔNICO
+// =====================================================
+#define TRIG_PIN 8
+#define ECHO_PIN 7
 
+Ultrasonic ultrasonic(TRIG_PIN, ECHO_PIN);
+
+// =====================================================
+// MOTORES
 // Motor Direito
+// =====================================================
 #define IN1 3
 #define IN2 11
 
@@ -10,48 +19,80 @@ Ultrasonic ultrasonic(8, 7);
 #define IN3 6
 #define IN4 10
 
-// Sensores de linha
+// =====================================================
+// SENSORES DE LINHA
+// =====================================================
 #define LINHA_ESQ 4
-#define LINHA_DIR 5
+#define LINHA_DIR 2
 
-// Fnções dos motores
-void atacar() { // Frente máxima velocidade
-  analogWrite(IN1, 255);
+// =====================================================
+// CONFIGURAÇÕES
+// =====================================================
+
+// Velocidades
+#define VELOCIDADE_ATAQUE 255
+#define VELOCIDADE_BUSCA 180
+#define VELOCIDADE_RE 220
+#define VELOCIDADE_GIRO 220
+
+// Distância para atacar
+#define DISTANCIA_ATAQUE 50
+
+// Tempos de fuga
+#define TEMPO_RE_DOIS 300
+#define TEMPO_RE_UM   230
+
+#define TEMPO_GIRO_DOIS 420
+#define TEMPO_GIRO_UM   300
+
+// =====================================================
+// CONTROLE DOS MOTORES
+// =====================================================
+
+void atacar() {
+  // Ambos os motores para frente
+  analogWrite(IN1, VELOCIDADE_ATAQUE);
   analogWrite(IN2, 0);
 
-  analogWrite(IN3, 255);
+  analogWrite(IN3, VELOCIDADE_ATAQUE);
   analogWrite(IN4, 0);
 }
 
-void procurar() { // Giro procurando o adversário
-  analogWrite(IN1, 170);
+void procurar() {
+  // Giro no próprio eixo
+  analogWrite(IN1, VELOCIDADE_BUSCA);
   analogWrite(IN2, 0);
 
   analogWrite(IN3, 0);
-  analogWrite(IN4, 170);
+  analogWrite(IN4, VELOCIDADE_BUSCA);
 }
 
 void re() {
+  // Ambos os motores para trás
   analogWrite(IN1, 0);
-  analogWrite(IN2, 220);
+  analogWrite(IN2, VELOCIDADE_RE);
 
   analogWrite(IN3, 0);
-  analogWrite(IN4, 220);
+  analogWrite(IN4, VELOCIDADE_RE);
 }
 
 void girarDireita() {
-  analogWrite(IN1, 220);
+  // Motor direito para trás
+  // Motor esquerdo para frente
+  analogWrite(IN1, VELOCIDADE_GIRO);
   analogWrite(IN2, 0);
 
   analogWrite(IN3, 0);
-  analogWrite(IN4, 220);
+  analogWrite(IN4, VELOCIDADE_GIRO);
 }
 
 void girarEsquerda() {
+  // Motor direito para frente
+  // Motor esquerdo para trás
   analogWrite(IN1, 0);
-  analogWrite(IN2, 220);
+  analogWrite(IN2, VELOCIDADE_GIRO);
 
-  analogWrite(IN3, 220);
+  analogWrite(IN3, VELOCIDADE_GIRO);
   analogWrite(IN4, 0);
 }
 
@@ -63,7 +104,82 @@ void parar() {
   analogWrite(IN4, 0);
 }
 
+// =====================================================
+// FUGA DA BORDA
+// =====================================================
+
+void fugirDoisSensores() {
+  parar();
+  delay(20);
+
+  re();
+  delay(TEMPO_RE_DOIS);
+
+  girarDireita();
+  delay(TEMPO_GIRO_DOIS);
+
+  parar();
+}
+
+void fugirEsquerda() {
+  parar();
+  delay(20);
+
+  re();
+  delay(TEMPO_RE_UM);
+
+  girarDireita();
+  delay(TEMPO_GIRO_UM);
+
+  parar();
+}
+
+void fugirDireita() {
+  parar();
+  delay(20);
+
+  re();
+  delay(TEMPO_RE_UM);
+
+  girarEsquerda();
+  delay(TEMPO_GIRO_UM);
+
+  parar();
+}
+
+int lerDistanciaFiltrada() {
+
+  int leituras[5];
+
+  for (int i = 0; i < 5; i++) {
+    leituras[i] = ultrasonic.read(CM);
+    delay(10);
+  }
+
+  // Ordena as 5 leituras
+  for (int i = 0; i < 4; i++) {
+    for (int j = i + 1; j < 5; j++) {
+
+      if (leituras[j] < leituras[i]) {
+
+        int temp = leituras[i];
+        leituras[i] = leituras[j];
+        leituras[j] = temp;
+      }
+    }
+  }
+
+  // Retorna a mediana
+  return leituras[2];
+}
+
+
+// =====================================================
+// SETUP
+// =====================================================
+
 void setup() {
+
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
@@ -73,66 +189,71 @@ void setup() {
   pinMode(LINHA_DIR, INPUT);
 
   Serial.begin(9600);
+
+  parar();
 }
 
+// =====================================================
+// LOOP PRINCIPAL
+// =====================================================
+
 void loop() {
+
   bool esq = digitalRead(LINHA_ESQ);
   bool dir = digitalRead(LINHA_DIR);
 
-  // A prioridade é não sair da arena
-  // Os dois sensores detectaram a borda
-  if (esq == LOW && dir == LOW) {
-    parar();
-    delay(20);
+  int distancia = lerDistanciaFiltrada();
 
-    re();
-    delay(300);
+  Serial.print("ESQ: ");
+  Serial.print(esq);
 
-    girarDireita();
-    delay(450);
+  Serial.print(" | DIR: ");
+  Serial.print(dir);
 
-    return;
+  Serial.print(" | DIST: ");
+  Serial.print(distancia);
+  Serial.println(" cm");
+
+
+  // =================================================
+  // FUGA DA BORDA
+  // Branco = 0
+  // Preto  = 1
+  // =================================================
+
+  if (esq == 0 && dir == 0) {
+
+    fugirDoisSensores();
+
+  } 
+  else if (esq == 0) {
+
+    fugirEsquerda();
+
+  } 
+  else if (dir == 0) {
+
+    fugirDireita();
+
   }
 
-  // Apenas sensor esquerdo detectou
-  if (esq == LOW) {
-    parar();
-    delay(20);
+  // =================================================
+  // COMPORTAMENTO NORMAL
+  // =================================================
+  else {
 
-    re();
-    delay(250);
+    if (distancia > 0 && distancia <= DISTANCIA_ATAQUE) {
+      atacar();
+    } 
+    else {
+      // procurar();
+      return;
+    }
 
-    girarDireita();
-    delay(300);
-
-    return;
   }
 
-  // Apenas sensor direito detectou
-  if (dir == LOW) {
-    parar();
-    delay(20);
-
-    re();
-    delay(250);
-
-    girarEsquerda();
-    delay(300);
-
-    return;
-  }
-
-  // Sensor ultrassônico
-  int distancia = ultrasonic.read(CM);
-
-  Serial.print("Distancia: ");
-  Serial.println(distancia);
-
-  if (distancia <= 25) {
-    atacar();
-  } else {
-    procurar();
-  }
-
-  delay(10);
+  delay(20);
 }
+
+
+
